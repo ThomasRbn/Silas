@@ -1,6 +1,5 @@
 import { spawn } from 'child_process'
-import { existsSync } from 'fs'
-import { join } from 'path'
+import { existsSync, readdirSync } from 'fs'
 
 interface VideoInfo {
     title: string
@@ -18,15 +17,30 @@ interface VideoInfo {
 // Cookie file path - can be set via environment variable
 const COOKIES_PATH = process.env.COOKIES_PATH || '/app/cookies.txt'
 
+// Debug: log on startup
+console.log('[yt-dlp] Starting with config:')
+console.log(`[yt-dlp]   COOKIES_PATH env: ${process.env.COOKIES_PATH}`)
+console.log(`[yt-dlp]   Resolved path: ${COOKIES_PATH}`)
+console.log(`[yt-dlp]   CWD: ${process.cwd()}`)
+console.log(`[yt-dlp]   File exists: ${existsSync(COOKIES_PATH)}`)
+
+// List /app directory contents
+try {
+    const appContents = readdirSync('/app')
+    console.log(`[yt-dlp]   /app contents: ${appContents.join(', ')}`)
+} catch (e) {
+    console.log(`[yt-dlp]   Cannot read /app: ${e}`)
+}
+
 function getCookieArgs(): string[] {
     const exists = existsSync(COOKIES_PATH)
-    console.log(`[yt-dlp] Cookies file path: ${COOKIES_PATH}`)
-    console.log(`[yt-dlp] Cookies file exists: ${exists}`)
 
     if (exists) {
+        console.log(`[yt-dlp] Using cookies from: ${COOKIES_PATH}`)
         return ['--cookies', COOKIES_PATH]
     }
-    // Fallback: try common browser cookie extraction (local dev only)
+
+    console.log(`[yt-dlp] No cookies file found at: ${COOKIES_PATH}`)
     return []
 }
 
