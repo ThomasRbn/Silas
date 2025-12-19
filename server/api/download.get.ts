@@ -41,7 +41,11 @@ export default defineEventHandler(async (event) => {
 
         // Get file stats
         const stats = statSync(filePath)
-        const sanitizedTitle = title.replace(/[^a-zA-Z0-9\-_\s]/g, '').substring(0, 100)
+        const sanitizedTitle = title.replace(/[^a-zA-Z0-9\-_\s]/g, '').substring(0, 100) || 'download'
+
+        console.log(`[download] File ready: ${filePath}`)
+        console.log(`[download] File size: ${stats.size} bytes`)
+        console.log(`[download] Sending as: ${sanitizedTitle}.${format}`)
 
         // Set response headers
         setHeaders(event, {
@@ -55,6 +59,7 @@ export default defineEventHandler(async (event) => {
 
         // Clean up file after streaming
         stream.on('close', () => {
+            console.log(`[download] Stream closed`)
             try {
                 if (existsSync(filePath)) {
                     unlinkSync(filePath)
