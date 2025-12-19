@@ -131,13 +131,8 @@ async function download(format: 'mp3' | 'mp4') {
   try {
     const downloadUrl = `/api/download?url=${encodeURIComponent(videoInfo.value.url)}&format=${format}`
     
-    // Create a temporary link and trigger download
-    const link = document.createElement('a')
-    link.href = downloadUrl
-    link.download = `${videoInfo.value.title}.${format}`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    // Use window.open for better download handling
+    window.open(downloadUrl, '_blank')
   } catch (e: any) {
     error.value = e.message || 'Download failed'
   } finally {
@@ -145,7 +140,7 @@ async function download(format: 'mp3' | 'mp4') {
     setTimeout(() => {
       downloading.value = false
       downloadFormat.value = null
-    }, 2000)
+    }, 3000)
   }
 }
 
