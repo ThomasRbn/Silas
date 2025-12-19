@@ -22,3 +22,6 @@ logs
 .env
 .env.*
 !.env.example
+
+# Cookies (sensitive - never commit!)
+cookies.txt

@@ -4,6 +4,16 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
 
+// Cookie file path - can be set via environment variable
+const COOKIES_PATH = process.env.COOKIES_PATH || '/app/cookies.txt'
+
+function getCookieArgs(): string[] {
+    if (existsSync(COOKIES_PATH)) {
+        return ['--cookies', COOKIES_PATH]
+    }
+    return []
+}
+
 export default defineEventHandler(async (event) => {
     const query = getQuery(event)
     const { url, format } = query as { url: string; format: 'mp3' | 'mp4' }
@@ -76,10 +86,13 @@ function downloadMedia(
     tempDir: string
 ): Promise<DownloadResult> {
     return new Promise((resolve, reject) => {
+        const cookieArgs = getCookieArgs()
+
         const args: string[] = [
             '--no-warnings',
             '--no-playlist',
             '-o', outputTemplate,
+            ...cookieArgs,
         ]
 
         if (format === 'mp3') {
@@ -97,39 +110,40 @@ function downloadMedia(
 
         args.push(url)
 
-        const process = spawn('yt-dlp', args)
+        const ytdlp = spawn('yt-dlp', args)
         let stderr = ''
         let title = 'download'
 
-        process.stderr.on('data', (data) => {
+        ytdlp.stderr.on('data', (data: Buffer) => {
             stderr += data.toString()
         })
 
-        process.stdout.on('data', (data) => {
+        ytdlp.stdout.on('data', (data: Buffer) => {
             const output = data.toString()
-            // Try to extract title from output
             const titleMatch = output.match(/\[download\] Destination: .*?([^\/]+)\.(mp3|mp4|webm|m4a)/)
             if (titleMatch) {
                 title = titleMatch[1].replace(tempId + '.', '')
             }
         })
 
-        process.on('close', (code) => {
+        ytdlp.on('close', (code: number | null) => {
             if (code !== 0) {
-                reject(new Error(stderr || 'Download failed'))
+                if (stderr.includes('Sign in to confirm')) {
+                    reject(new Error('YouTube requires authentication. Please add cookies.txt file.'))
+                } else {
+                    reject(new Error(stderr || 'Download failed'))
+                }
                 return
             }
 
-            // Find the output file
             const ext = format === 'mp3' ? 'mp3' : 'mp4'
             const expectedPath = join(tempDir, `${tempId}.${ext}`)
 
             if (existsSync(expectedPath)) {
-                // Get the title from yt-dlp
-                const titleProcess = spawn('yt-dlp', ['--get-title', '--no-warnings', url])
+                const titleProcess = spawn('yt-dlp', ['--get-title', '--no-warnings', ...getCookieArgs(), url])
                 let titleOutput = ''
 
-                titleProcess.stdout.on('data', (data) => {
+                titleProcess.stdout.on('data', (data: Buffer) => {
                     titleOutput += data.toString()
                 })
 
@@ -151,7 +165,7 @@ function downloadMedia(
             }
         })
 
-        process.on('error', () => {
+        ytdlp.on('error', () => {
             reject(new Error('yt-dlp not found. Please install it: brew install yt-dlp'))
         })
     })

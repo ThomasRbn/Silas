@@ -7,6 +7,10 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
+      - COOKIES_PATH=/app/cookies.txt
+    volumes:
+      # Mount your cookies.txt file for YouTube authentication
+      - ./cookies.txt:/app/cookies.txt:ro
     restart: unless-stopped
     # Optional: limit resources
     deploy:

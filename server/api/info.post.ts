@@ -1,4 +1,6 @@
 import { spawn } from 'child_process'
+import { existsSync } from 'fs'
+import { join } from 'path'
 
 interface VideoInfo {
     title: string
@@ -11,6 +13,17 @@ interface VideoInfo {
         audio: { format_id: string; ext: string; quality: string }[]
         video: { format_id: string; ext: string; quality: string; resolution: string }[]
     }
+}
+
+// Cookie file path - can be set via environment variable
+const COOKIES_PATH = process.env.COOKIES_PATH || '/app/cookies.txt'
+
+function getCookieArgs(): string[] {
+    if (existsSync(COOKIES_PATH)) {
+        return ['--cookies', COOKIES_PATH]
+    }
+    // Fallback: try common browser cookie extraction (local dev only)
+    return []
 }
 
 export default defineEventHandler(async (event) => {
@@ -51,28 +64,36 @@ export default defineEventHandler(async (event) => {
 
 function getVideoInfo(url: string): Promise<Omit<VideoInfo, 'platform'>> {
     return new Promise((resolve, reject) => {
+        const cookieArgs = getCookieArgs()
+
         const args = [
             '--dump-json',
             '--no-warnings',
             '--no-playlist',
+            ...cookieArgs,
             url,
         ]
 
-        const process = spawn('yt-dlp', args)
+        const ytdlp = spawn('yt-dlp', args)
         let stdout = ''
         let stderr = ''
 
-        process.stdout.on('data', (data) => {
+        ytdlp.stdout.on('data', (data: Buffer) => {
             stdout += data.toString()
         })
 
-        process.stderr.on('data', (data) => {
+        ytdlp.stderr.on('data', (data: Buffer) => {
             stderr += data.toString()
         })
 
-        process.on('close', (code) => {
+        ytdlp.on('close', (code: number | null) => {
             if (code !== 0) {
-                reject(new Error(stderr || 'yt-dlp process failed'))
+                // Check for bot detection error
+                if (stderr.includes('Sign in to confirm')) {
+                    reject(new Error('YouTube requires authentication. Please add cookies.txt file.'))
+                } else {
+                    reject(new Error(stderr || 'yt-dlp process failed'))
+                }
                 return
             }
 
@@ -87,7 +108,7 @@ function getVideoInfo(url: string): Promise<Omit<VideoInfo, 'platform'>> {
                         ext: f.ext,
                         quality: f.abr ? `${f.abr}kbps` : 'unknown',
                     }))
-                    .slice(-5) // Get last 5 (usually best quality)
+                    .slice(-5)
 
                 // Extract video formats
                 const videoFormats = (data.formats || [])
@@ -98,7 +119,7 @@ function getVideoInfo(url: string): Promise<Omit<VideoInfo, 'platform'>> {
                         quality: f.format_note || 'unknown',
                         resolution: f.resolution || `${f.width}x${f.height}`,
                     }))
-                    .slice(-5) // Get last 5 (usually best quality)
+                    .slice(-5)
 
                 resolve({
                     title: data.title,
@@ -116,8 +137,8 @@ function getVideoInfo(url: string): Promise<Omit<VideoInfo, 'platform'>> {
             }
         })
 
-        process.on('error', (error) => {
-            reject(new Error(`yt-dlp not found. Please install it: brew install yt-dlp`))
+        ytdlp.on('error', () => {
+            reject(new Error('yt-dlp not found. Please install it: brew install yt-dlp'))
         })
     })
 }
