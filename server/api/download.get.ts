@@ -16,7 +16,7 @@ function getCookieArgs(): string[] {
 
 export default defineEventHandler(async (event) => {
     const query = getQuery(event)
-    const { url, format } = query as { url: string; format: 'mp3' | 'mp4' }
+    const { url, format, title: queryTitle } = query as { url: string; format: 'mp3' | 'mp4'; title?: string }
 
     if (!url || !format) {
         throw createError({
@@ -37,11 +37,12 @@ export default defineEventHandler(async (event) => {
     const outputTemplate = join(tempDir, `${tempId}.%(ext)s`)
 
     try {
-        const { filePath, title } = await downloadMedia(url, format, outputTemplate, tempId, tempDir)
+        const { filePath } = await downloadMedia(url, format, outputTemplate, tempId, tempDir)
 
         // Get file stats
         const stats = statSync(filePath)
-        const sanitizedTitle = title.replace(/[^a-zA-Z0-9\-_\s]/g, '').substring(0, 100) || 'download'
+        // Use title from query param, fallback to 'download'
+        const sanitizedTitle = (queryTitle || 'download').replace(/[^a-zA-Z0-9\-_\s]/g, '').substring(0, 100) || 'download'
 
         console.log(`[download] File ready: ${filePath}`)
         console.log(`[download] File size: ${stats.size} bytes`)

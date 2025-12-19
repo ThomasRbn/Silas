@@ -129,7 +129,7 @@ async function download(format: 'mp3' | 'mp4') {
   downloadFormat.value = format
 
   try {
-    const downloadUrl = `/api/download?url=${encodeURIComponent(videoInfo.value.url)}&format=${format}`
+    const downloadUrl = `/api/download?url=${encodeURIComponent(videoInfo.value.url)}&format=${format}&title=${encodeURIComponent(videoInfo.value.title)}`
     
     // Use window.open for better download handling
     window.open(downloadUrl, '_blank')
