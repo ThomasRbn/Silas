@@ -87,6 +87,9 @@ function downloadMedia(
 ): Promise<DownloadResult> {
     return new Promise((resolve, reject) => {
         const cookieArgs = getCookieArgs()
+        console.log(`[download] Starting download: ${url} as ${format}`)
+        console.log(`[download] Output template: ${outputTemplate}`)
+        console.log(`[download] Cookie args: ${JSON.stringify(cookieArgs)}`)
 
         const args: string[] = [
             '--no-warnings',
@@ -109,9 +112,11 @@ function downloadMedia(
         }
 
         args.push(url)
+        console.log(`[download] Full command: yt-dlp ${args.join(' ')}`)
 
         const ytdlp = spawn('yt-dlp', args)
         let stderr = ''
+        let stdout = ''
         let title = 'download'
 
         ytdlp.stderr.on('data', (data: Buffer) => {
@@ -127,6 +132,9 @@ function downloadMedia(
         })
 
         ytdlp.on('close', (code: number | null) => {
+            console.log(`[download] yt-dlp exited with code: ${code}`)
+            console.log(`[download] stderr: ${stderr}`)
+
             if (code !== 0) {
                 if (stderr.includes('Sign in to confirm')) {
                     reject(new Error('YouTube requires authentication. Please add cookies.txt file.'))
@@ -138,6 +146,8 @@ function downloadMedia(
 
             const ext = format === 'mp3' ? 'mp3' : 'mp4'
             const expectedPath = join(tempDir, `${tempId}.${ext}`)
+            console.log(`[download] Looking for file: ${expectedPath}`)
+            console.log(`[download] File exists: ${existsSync(expectedPath)}`)
 
             if (existsSync(expectedPath)) {
                 const titleProcess = spawn('yt-dlp', ['--get-title', '--no-warnings', ...getCookieArgs(), url])
