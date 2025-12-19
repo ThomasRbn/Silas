@@ -19,7 +19,11 @@ interface VideoInfo {
 const COOKIES_PATH = process.env.COOKIES_PATH || '/app/cookies.txt'
 
 function getCookieArgs(): string[] {
-    if (existsSync(COOKIES_PATH)) {
+    const exists = existsSync(COOKIES_PATH)
+    console.log(`[yt-dlp] Cookies file path: ${COOKIES_PATH}`)
+    console.log(`[yt-dlp] Cookies file exists: ${exists}`)
+
+    if (exists) {
         return ['--cookies', COOKIES_PATH]
     }
     // Fallback: try common browser cookie extraction (local dev only)

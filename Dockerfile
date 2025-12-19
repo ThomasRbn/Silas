@@ -20,15 +20,16 @@ FROM oven/bun:1-slim AS production
 
 WORKDIR /app
 
-# Install yt-dlp and ffmpeg
+# Install yt-dlp, ffmpeg, and deno (for yt-dlp JS extraction)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
-    python3-pip \
     ffmpeg \
     curl \
     ca-certificates \
+    unzip \
     && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
     && chmod a+rx /usr/local/bin/yt-dlp \
+    && curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -39,6 +40,8 @@ COPY --from=builder /app/.output /app/.output
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
+ENV COOKIES_PATH=/app/cookies.txt
+ENV DENO_DIR=/tmp/deno
 
 # Expose port
 EXPOSE 3000
@@ -49,3 +52,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # Start the application
 CMD ["bun", ".output/server/index.mjs"]
+
