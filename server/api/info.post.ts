@@ -1,0 +1,123 @@
+import { spawn } from 'child_process'
+
+interface VideoInfo {
+    title: string
+    thumbnail: string
+    duration: number
+    uploader: string
+    url: string
+    platform: 'youtube' | 'tiktok'
+    formats: {
+        audio: { format_id: string; ext: string; quality: string }[]
+        video: { format_id: string; ext: string; quality: string; resolution: string }[]
+    }
+}
+
+export default defineEventHandler(async (event) => {
+    const body = await readBody(event)
+    const { url } = body
+
+    if (!url) {
+        throw createError({
+            statusCode: 400,
+            statusMessage: 'URL is required',
+        })
+    }
+
+    // Validate URL
+    const isYouTube = /(?:youtube\.com|youtu\.be)/i.test(url)
+    const isTikTok = /tiktok\.com/i.test(url)
+
+    if (!isYouTube && !isTikTok) {
+        throw createError({
+            statusCode: 400,
+            statusMessage: 'Only YouTube and TikTok URLs are supported',
+        })
+    }
+
+    try {
+        const info = await getVideoInfo(url)
+        return {
+            ...info,
+            platform: isYouTube ? 'youtube' : 'tiktok',
+        }
+    } catch (error: any) {
+        throw createError({
+            statusCode: 500,
+            statusMessage: error.message || 'Failed to fetch video info',
+        })
+    }
+})
+
+function getVideoInfo(url: string): Promise<Omit<VideoInfo, 'platform'>> {
+    return new Promise((resolve, reject) => {
+        const args = [
+            '--dump-json',
+            '--no-warnings',
+            '--no-playlist',
+            url,
+        ]
+
+        const process = spawn('yt-dlp', args)
+        let stdout = ''
+        let stderr = ''
+
+        process.stdout.on('data', (data) => {
+            stdout += data.toString()
+        })
+
+        process.stderr.on('data', (data) => {
+            stderr += data.toString()
+        })
+
+        process.on('close', (code) => {
+            if (code !== 0) {
+                reject(new Error(stderr || 'yt-dlp process failed'))
+                return
+            }
+
+            try {
+                const data = JSON.parse(stdout)
+
+                // Extract audio formats
+                const audioFormats = (data.formats || [])
+                    .filter((f: any) => f.acodec !== 'none' && f.vcodec === 'none')
+                    .map((f: any) => ({
+                        format_id: f.format_id,
+                        ext: f.ext,
+                        quality: f.abr ? `${f.abr}kbps` : 'unknown',
+                    }))
+                    .slice(-5) // Get last 5 (usually best quality)
+
+                // Extract video formats
+                const videoFormats = (data.formats || [])
+                    .filter((f: any) => f.vcodec !== 'none' && f.acodec !== 'none')
+                    .map((f: any) => ({
+                        format_id: f.format_id,
+                        ext: f.ext,
+                        quality: f.format_note || 'unknown',
+                        resolution: f.resolution || `${f.width}x${f.height}`,
+                    }))
+                    .slice(-5) // Get last 5 (usually best quality)
+
+                resolve({
+                    title: data.title,
+                    thumbnail: data.thumbnail,
+                    duration: data.duration,
+                    uploader: data.uploader || data.channel || 'Unknown',
+                    url: url,
+                    formats: {
+                        audio: audioFormats,
+                        video: videoFormats,
+                    },
+                })
+            } catch (parseError) {
+                reject(new Error('Failed to parse video info'))
+            }
+        })
+
+        process.on('error', (error) => {
+            reject(new Error(`yt-dlp not found. Please install it: brew install yt-dlp`))
+        })
+    })
+}
