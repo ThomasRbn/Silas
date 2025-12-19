@@ -105,6 +105,10 @@ function getVideoInfo(url: string): Promise<Omit<VideoInfo, 'platform'>> {
         })
 
         ytdlp.on('close', (code: number | null) => {
+            console.log(`[yt-dlp] Process exited with code: ${code}`)
+            console.log(`[yt-dlp] stderr: ${stderr}`)
+            console.log(`[yt-dlp] stdout length: ${stdout.length}`)
+
             if (code !== 0) {
                 // Check for bot detection error
                 if (stderr.includes('Sign in to confirm')) {
