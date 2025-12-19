@@ -92,6 +92,7 @@ function getVideoInfo(url: string): Promise<Omit<VideoInfo, 'platform'>> {
             url,
         ]
 
+        console.log(`[yt-dlp] Executing: yt-dlp ${args.join(' ')}`)
         const ytdlp = spawn('yt-dlp', args)
         let stdout = ''
         let stderr = ''
