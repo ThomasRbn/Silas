@@ -155,25 +155,11 @@ function downloadMedia(
             console.log(`[download] File exists: ${existsSync(expectedPath)}`)
 
             if (existsSync(expectedPath)) {
-                const titleProcess = spawn('yt-dlp', ['--get-title', '--no-warnings', ...getCookieArgs(), url])
-                let titleOutput = ''
-
-                titleProcess.stdout.on('data', (data: Buffer) => {
-                    titleOutput += data.toString()
-                })
-
-                titleProcess.on('close', () => {
-                    resolve({
-                        filePath: expectedPath,
-                        title: titleOutput.trim() || 'download',
-                    })
-                })
-
-                titleProcess.on('error', () => {
-                    resolve({
-                        filePath: expectedPath,
-                        title: 'download',
-                    })
+                // Resolve immediately - don't make another yt-dlp call for title
+                console.log(`[download] Resolving with file: ${expectedPath}`)
+                resolve({
+                    filePath: expectedPath,
+                    title: 'download', // Title will be set from the event handler using videoInfo
                 })
             } else {
                 reject(new Error('Output file not found'))
